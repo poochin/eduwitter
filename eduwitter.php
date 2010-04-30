@@ -2,13 +2,10 @@
 /**********************************************************
  * Eduwitter v0.2
  * @poochin - http://www13.atpages.jp/llan/
- * LastUpdate: 2010-04-28
+ * LastUpdate: 2010-04-30
  * License: MIT or BSD
  *   MIT: http://www.opensource.org/licenses/mit-license.php
  *   BSD: http://www.opensource.org/licenses/bsd-license.php
- * モデリング: http://
- * 
- *   Twitter で OAuth を勉強したい方へ向けてのライブラリ
  *********************************************************/
 /*--------------------------------------------------------
  * EDAssist
@@ -89,7 +86,12 @@ class EDAssist
                       ? ('https://') : ('http://'));
   }
 }
-/*-------------------------------------------------------*/
+
+/*--------------------------------------------------------
+ * Eduwitter
+ * 
+ *   Eduwitter library main class.
+ -------------------------------------------------------*/
 class Eduwitter
 {
   /*------------------- Protected area ------------------*/
