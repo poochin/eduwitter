@@ -1,8 +1,8 @@
 <?php
 /**********************************************************
- * Eduwitter v0.2
- * @poochin - http://www13.atpages.jp/llan/
- * LastUpdate: 2010-04-30
+ * Eduwitter v0.2.1
+ * @poochin - http://www13.atpages.jp/llan/wp/
+ * LastUpdate: 2010-05-07
  * License: MIT or BSD
  *   MIT: http://www.opensource.org/licenses/mit-license.php
  *   BSD: http://www.opensource.org/licenses/bsd-license.php
@@ -14,9 +14,10 @@
  * Eduwitter.
  -------------------------------------------------------*/
 EDAssist::initEDAssist();
+
 class EDAssist
 {
-  static $scheme; // 'https://' or 'http://'
+  static $scheme; // initEDAssist() set 'https://' or 'http://'
   static $host = 'twitter.com';
   
   static $api_request_token = '/oauth/request_token';
@@ -103,6 +104,8 @@ class Eduwitter
     protected $oauth_token,         // oauth token of request_token or access_token
               $oauth_token_secret;  // oauth token secret of request_token or access_token
     
+    protected $last_status_code;    // HTTP status code of last reqest OAuth
+    
     /**
      * eduwitterConnect
      * 
@@ -117,44 +120,61 @@ class Eduwitter
     protected function eduwitteConnect($url, $method, $params)
     {
       $query = EDAssist::params2Query($params);
-      $header = array();
-      $header[] = 'Expect:';
-      $header[] = EDAssist::params2Authorization($params);
       
-      /* curl connection */
-      $ch = curl_init();
+      /**
+       * curl configure
+       */
+      $curl_opt = array(
+        CURLOPT_URL             => $url,
+        CURLOPT_HEADER          => TRUE,
+        CURLOPT_RETURNTRANSFER  => true,
+        CURLOPT_SSLVERSION      => EDAssist::$ssl_version,
+        CURLOPT_SSL_VERIFYPEER  => EDAssist::$ssl_verifypeer,
+        CURLOPT_HTTPHEADER      => array(
+          'Expect:',
+          EDAssist::params2Authorization($params)
+        ),
+      );
       
-      /* branch using method */
+      /* switch of method */
       switch ($method) {
         case 'GET':
-          $url .= '?' . $query.
-          $header[] = 'Content-type: application/x-www-form-urlencoded';
+          $curl_opt[CURLOPT_URL] = $url . '?' . $query;
           break;
         case 'POST':
-          curl_setopt($ch, CURLOPT_POST, true);
-          curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
+          $curl_opt[CURLOPT_URL] = $url;
+          $curl_opt[CURLOPT_POST] = true;
+          $curl_opt[CURLOPT_POSTFIELDS] = $query;
           break;
         case 'DELETE':
-          $url .= '?' . $query;
-          curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+          $curl_opt[CURLOPT_URL] = $url . '?' . $query;
+          $curl_opt[CURLOPT_CUSTOMREQUEST] = $method;
           break;
       }
       
-      /* to customize curl */
-      curl_setopt($ch, CURLOPT_URL, $url);
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-      curl_setopt($ch, CURLOPT_SSLVERSION, EDAssist::$ssl_version);
-      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, EDAssist::$ssl_verifypeer);
-      
+      /* setting crt file path, if it is settled */
       if (!empty(EDAssist::$ssl_cainfo)) {
-        /* setting option crt file path */
-        curl_setopt($ch, CURLOPT_CAINFO, EDAssist::$ssl_cainfo);
+        $curl_opt[CURLOPT_CAINFO] = EDAssist::$ssl_cainfo;
       }
       
-      $response = curl_exec($ch);
+      /**
+       *  curl connection
+       */
+      $ch = curl_init();
+      curl_setopt_array($ch, $curl_opt);
+      $header_body = curl_exec($ch);
       curl_close($ch);
-      return $response;
+      
+      /* split response to header and body */
+      $split_pos = strpos($header_body, "\r\n\r\n");
+      $response_header = substr($header_body, 0, $split_pos);
+      $response_body = substr($header_body, $split_pos + 4);
+      
+      /* get http status code */
+      preg_match ("/HTTP\/[\d\.]+ (\d+)/", $response_header, $m);
+      $this->last_status_code = $m[1];
+      
+      return $response_body;
     }
     
     /**
@@ -403,5 +423,16 @@ class Eduwitter
       $response = self::eduwitteConnect($url, $method, $params);
       
       return $response;
+    }
+    
+    /**
+     * lastStatusCode
+     * 
+     * return
+     *   http status code of last eduwitteConnect()
+     */
+    public function lastStatusCode()
+    {
+      return $this->last_status_code;
     }
 }
