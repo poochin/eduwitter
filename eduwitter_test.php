@@ -150,6 +150,6 @@ echo '<?xml version="1.0" encoding="UTF-8"?>';
   <hr/>
   <?="{$content}\n";?>
   <hr/>
-  <p>Eduwitter ver0.1 (<a href="http://www13.atpages.jp/llan/archive/eduwitter_001.zip">zip</a>) (<a href="http://www13.atpages.jp/llan/archive/eduwitter_001.tar.gz">tar.gz</a>)</p>
+  <p>Eduwitter ver0.1 (<a href="http://www13.atpages.jp/llan/archive/eduwitter_002.zip">zip</a>) (<a href="http://www13.atpages.jp/llan/archive/eduwitter_002.tar.gz">tar.gz</a>)</p>
 </body>
 </html>
