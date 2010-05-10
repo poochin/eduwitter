@@ -1,8 +1,8 @@
 <?php
 /**********************************************************
- * Eduwitter v0.2.1
+ * Eduwitter v0.2.2
  * @poochin - http://www13.atpages.jp/llan/wp/
- * LastUpdate: 2010-05-07
+ * LastUpdate: 2010-05-10
  * License: MIT or BSD
  *   MIT: http://www.opensource.org/licenses/mit-license.php
  *   BSD: http://www.opensource.org/licenses/bsd-license.php
@@ -104,7 +104,8 @@ class Eduwitter
     protected $oauth_token,         // oauth token of request_token or access_token
               $oauth_token_secret;  // oauth token secret of request_token or access_token
     
-    protected $last_status_code;    // HTTP status code of last reqest OAuth
+    protected $last_status_code,    // HTTP status code of last reqest OAuth
+              $last_status_reason;  // HTTP status reason of last request OAuth
     
     /**
      * eduwitterConnect
@@ -171,8 +172,9 @@ class Eduwitter
       $response_body = substr($header_body, $split_pos + 4);
       
       /* get http status code */
-      preg_match ("/HTTP\/[\d\.]+ (\d+)/", $response_header, $m);
+      preg_match ("/^HTTP\/[\d\.]+ (\d+) (.+)$/", $response_header, $m);
       $this->last_status_code = $m[1];
+      $this->last_status_reason = $m[2];
       
       return $response_body;
     }
