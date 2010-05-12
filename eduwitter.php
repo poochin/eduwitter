@@ -1,8 +1,8 @@
 <?php
 /**********************************************************
- * Eduwitter v0.2.2
+ * Eduwitter v0.2.3
  * @poochin - http://www13.atpages.jp/llan/wp/
- * LastUpdate: 2010-05-10
+ * LastUpdate: 2010-05-12
  * License: MIT or BSD
  *   MIT: http://www.opensource.org/licenses/mit-license.php
  *   BSD: http://www.opensource.org/licenses/bsd-license.php
@@ -172,7 +172,7 @@ class Eduwitter
       $response_body = substr($header_body, $split_pos + 4);
       
       /* get http status code */
-      preg_match ("/^HTTP\/[\d\.]+ (\d+) (.+)$/", $response_header, $m);
+      preg_match ("/^HTTP\/[\d\.]+ (\d+) (.+)/", $response_header, $m);
       $this->last_status_code = $m[1];
       $this->last_status_reason = $m[2];
       
