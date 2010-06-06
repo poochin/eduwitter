@@ -1,4 +1,24 @@
-Eduwitter ver0.2
+Eduwitter
 Author: poochin
-URL: http://www13.atpagees.jp/llan/wp/
+URL: http://poochin.blogspot.com/
 Lisence: MIT or BSD
+
+  English.
+Eduwitter is Library for my studing OAuth.
+The reason of commiting is it may be useful for Anyone's doing.
+
+To create this, I tried and tried usign abraham's twitteroauth to under-
+stand OAuth.
+Thanks for abraham.
+
+
+  Japanese.
+Eduwitter は OAuth を学習する際に作成したコードです。
+構造を質素にすることで挙動を推測しやすくなっています。
+もしかすると誰かの学習の役に立つかも知れないため公開しました。
+
+作成するにあたり abraham's twitteroauth で OAuth の挙動をチェックしました。
+abrahamさんに感謝します。
+
+  Relation.
+http://github.com/abraham/twitteroauth

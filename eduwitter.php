@@ -1,6 +1,6 @@
 <?php
 /**********************************************************
- * Eduwitter v0.2.3
+ * Eduwitter v0.2.4
  * @poochin - http://www13.atpages.jp/llan/wp/
  * LastUpdate: 2010-05-12
  * License: MIT or BSD
@@ -174,7 +174,7 @@ class Eduwitter
       /* get http status code */
       preg_match ("/^HTTP\/[\d\.]+ (\d+) (.+)/", $response_header, $m);
       $this->last_status_code = $m[1];
-      $this->last_status_reason = $m[2];
+      $this->last_status_reason = $m[2];  // 改行が入るバグあり
       
       return $response_body;
     }
@@ -436,5 +436,16 @@ class Eduwitter
     public function lastStatusCode()
     {
       return $this->last_status_code;
+    }
+    
+    /**
+     * lastStatusReason
+     * 
+     * return
+     *   http status reason of last eduwitterConnect()
+     */
+    public function lastStatusReason()
+    {
+      return $this->last_status_reason;
     }
 }
