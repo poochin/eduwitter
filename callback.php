@@ -105,10 +105,10 @@ if (isset($_GET['command']))
       $post['status'] = 'hello, eduwitter! : ' . (time()%60) . 'sec';
       break;
     case 'logout':
-      setcookie('eduwitter[oauth_token]', false, 0);
-      setcookie('eduwitter[oauth_token_secret]', false, 0);
-      setcookie('eduwitter[user_id]', false, 0);
-      setcookie('eduwitter[screen_name]', false, 0);
+      setcookie('eduwitter[oauth_token]', false, 0, '/');
+      setcookie('eduwitter[oauth_token_secret]', false, 0, '/');
+      setcookie('eduwitter[user_id]', false, 0, '/');
+      setcookie('eduwitter[screen_name]', false, 0, '/');
       header('Location: ' . $_SERVER["PHP_SELF"]);
       break;
     default:
