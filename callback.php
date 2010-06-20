@@ -92,7 +92,7 @@ if (isset($_GET['command']))
       $method = 'GET';
       break;
     case 'mentions':
-      $url = 'http://api.twitter.com/statuses/replies.xml';
+      $url = 'http://api.twitter.com/statuses/mentions.xml';
       $method = 'GET';
       break;
     case 'lists':
