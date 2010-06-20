@@ -2,19 +2,31 @@
 /**********************************************************
  * Eduwitter v0.2.4
  * @poochin - http://www13.atpages.jp/llan/wp/
- * LastUpdate: 2010-05-12
+ * LastUpdate: 2010-6-20
  * License: MIT or BSD
  *   MIT: http://www.opensource.org/licenses/mit-license.php
  *   BSD: http://www.opensource.org/licenses/bsd-license.php
  *********************************************************/
-/*--------------------------------------------------------
- * EDAssist
- * 
- *   it declear some variables and functions to assist
- * Eduwitter.
- -------------------------------------------------------*/
-EDAssist::initEDAssist();
 
+EDAssist::initEDAssist();
+/*--------------------------------------------------------
+ * EDAssist assist Eduwitter.
+ * All members declare as static.
+ * 
+ * Methods
+ *   ref_rawurlencode
+ *   ref_rawurldecode
+ *   params2Query
+ *   query2Params
+ *   params2Authorization
+ *   
+ *   nonce
+ *   
+ *   initEDAssist
+ * 
+ * Variables <omission>
+ * 
+ -------------------------------------------------------*/
 class EDAssist
 {
   static $scheme; // initEDAssist() set 'https://' or 'http://'
@@ -89,9 +101,41 @@ class EDAssist
 }
 
 /*--------------------------------------------------------
- * Eduwitter
+ * Eduwitter library main class.
  * 
- *   Eduwitter library main class.
+ * Methods
+ *   eduwitteConnect($url, $method, $params)
+ *   createParams($post = null)
+ *   createSignature($url, $method, $params)
+ *   
+ *   __construct($consumer_key, $consumer_secret, $oauth_token, $oauth_token_secret)
+ *   setOAuthToken($oauth_token, $oauth_token_secret = null)
+ *   
+ *   getParameter_RequestToken()
+ *   getRequestToken
+ *   setRequestToken
+ *   
+ *   getParameter_AccessToken()
+ *   getAccessToken
+ *   setAccessToken
+ *   
+ *   getParameter_OAuth($url, $method, $post)
+ *   requestOAuth($url, $method, $post)
+ *   
+ *   lastStatusCode()
+ *   lastStatusReason()
+ *   
+ * Variables
+ *   consumer_key
+ *   consumer_secret
+ *   oauth_token
+ *   oauth_token_secret
+ *   
+ *   user_id
+ *   
+ *   last_status_code
+ *   last_status_reason
+ * 
  -------------------------------------------------------*/
 class Eduwitter
 {
@@ -99,10 +143,10 @@ class Eduwitter
     protected $consumer_key,    // provided Consumer key
               $consumer_secret; // provided Consumer secret
               
-    protected $user_id;         // authenticated user id
-    
     protected $oauth_token,         // oauth token of request_token or access_token
               $oauth_token_secret;  // oauth token secret of request_token or access_token
+    
+    protected $user_id;         // authenticated user id
     
     protected $last_status_code,    // HTTP status code of last reqest OAuth
               $last_status_reason;  // HTTP status reason of last request OAuth
