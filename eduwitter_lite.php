@@ -13,10 +13,8 @@ $oauth_token_secret = '';
  * custom space of Request
  */
 $url = 'http://api.twitter.com/1/statuses/user_timeline.xml';
-/**
- * $url = 'http://api.twitter.com/1/statuses/update.xml';
- * $url = 'http://api.twitter.com/1/account/update_profile_image.xml';
- */
+// $url = 'http://api.twitter.com/1/statuses/update.xml';
+// $url = 'http://api.twitter.com/1/account/update_profile_image.xml';
 $method = 'GET';
 $post = array();
 $image_path = null; // path or null
