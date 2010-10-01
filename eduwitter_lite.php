@@ -1,7 +1,7 @@
 <?php
 /*---------------------------------------------------------
  * Eduwitter Lite
- * Lastest update: 2010-09-28
+ * Lastest update: 2010-10-01
  * License: MIT or BSD
  *-------------------------------------------------------*/
 $consumer_key = '';
@@ -30,7 +30,7 @@ function params2Authorization($params)
 }
 
 // rawurlencode post datas
-array_map(function (&$str) {$str = rawurlencode($str);}, $post);
+array_walk(function (&$str) {$str = rawurlencode($str);}, $post);
 
 /**
  * build parameters for signature and query string
@@ -79,7 +79,7 @@ if (isset($image_path)) {
   $boundary = "--poochin_boundary";
   $body_field = "--{$boundary}\r\n"
                ."Content-Disposition: form-data; name=\"image\"; filename=\"".basename($image_path)."\"\r\n"
-               ."Content-Type: image/jpeg\r\n"
+               ."Content-Type: image/jpeg\r\n" // TODO: Mime-type
                ."\r\n"
                .file_get_contents($image_path) . "\r\n"
                ."--{$boundary}--";
@@ -88,11 +88,11 @@ if (isset($image_path)) {
   $headers[] = "Content-Length: " . strlen($body_field);
 }
 else {
-  $body_field = $query_string . "\r\n";
   if ($method == 'GET') {
     $headers[] = "Authorization: OAuth realm=\"{$pu['scheme']}://{$pu['host']}/\", " . params2Authorization($params);
   }
   else {
+    $body_field = $query_string;
     $headers[] = "Authorization: " . params2Authorization($params);
     $headers[] = "Content-Length: " . strlen($body_field);
   }
