@@ -30,7 +30,7 @@ function params2Authorization($params)
 }
 
 // rawurlencode post datas(PHP >= 5.3.0)
-array_walk(function (&$str) {$str = rawurlencode($str);}, $post);
+array_walk($post, function (&$str) {$str = rawurlencode($str);});
 
 /**
  * build parameters for signature and query string
