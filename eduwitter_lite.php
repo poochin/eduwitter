@@ -1,7 +1,7 @@
 <?php
 /*---------------------------------------------------------
  * Eduwitter Lite
- * Lastest update: 2010-10-01
+ * Lastest update: 2010-10-02
  * License: MIT or BSD
  *-------------------------------------------------------*/
 $consumer_key = '';
@@ -29,7 +29,7 @@ function params2Authorization($params)
   return implode(', ', $parts);
 }
 
-// rawurlencode post datas
+// rawurlencode post datas(PHP >= 5.3.0)
 array_walk(function (&$str) {$str = rawurlencode($str);}, $post);
 
 /**
@@ -87,15 +87,12 @@ if (isset($image_path)) {
   $headers[] = "Content-Type: multipart/form-data; boundary={$boundary}";
   $headers[] = "Content-Length: " . strlen($body_field);
 }
+else if ($method == 'GET') {
+  $headers[] = "Authorization: OAuth realm=\"{$pu['scheme']}://{$pu['host']}/\", " . params2Authorization($params);
+}
 else {
-  if ($method == 'GET') {
-    $headers[] = "Authorization: OAuth realm=\"{$pu['scheme']}://{$pu['host']}/\", " . params2Authorization($params);
-  }
-  else {
-    $body_field = $query_string;
-    $headers[] = "Authorization: " . params2Authorization($params);
-    $headers[] = "Content-Length: " . strlen($body_field);
-  }
+  $body_field = $query_string;
+  $headers[] = "Content-Length: " . strlen($body_field);
 }
 
 $header_field = implode("\r\n", $headers) . "\r\n";
@@ -112,8 +109,7 @@ if (!$fp) {
 
 fwrite($fp, $header_field);
 fwrite($fp, "\r\n");
-fwrite($fp, $body_field);
-fwrite($fp, "\r\n");
+fwrite($fp, (isset($body_field) ? $body_field : ""));
 
 while (!feof($fp)) {
   echo fread($fp, 10240);
