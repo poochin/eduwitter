@@ -59,15 +59,7 @@ $params['oauth_signature'] = rawurlencode(base64_encode(hash_hmac('sha1', $bs, $
  */
 $query_string = rawurldecode(http_build_query($params));
 
-switch ($method) {
-  case 'GET':
-  case 'HEAD':
-    $pu = parse_url($url.'?'.$query_string);
-    break;
-  default:
-    $pu = parse_url($url);
-    break;
-}
+$pu = parse_url($url);
 
 $headers = array(
   "{$method} {$pu['path']} HTTP/1.1",
@@ -102,6 +94,8 @@ $header_field = implode("\r\n", $headers) . "\r\n";
  */
 $port = isset($pu['port']) ? $pu['port'] : 80;
 
+// if use SSL, change $port to 443 and exchange this line to
+// $fp = fsockopen('tls://' . $pu['host'], $port);
 $fp = fsockopen($pu['host'], $port);
 if (!$fp) {
   die("Can not open socket\n");
