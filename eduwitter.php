@@ -1,240 +1,96 @@
 <?php
 /**********************************************************
- * Eduwitter v0.2.4
- * @poochin - http://www13.atpages.jp/llan/wp/
- * LastUpdate: 2010-6-20
+ * Eduwitter v0.3.0
+ * Author: poochin
+ * LastUpdate: 2010-10-3
  * License: MIT or BSD
  *   MIT: http://www.opensource.org/licenses/mit-license.php
  *   BSD: http://www.opensource.org/licenses/bsd-license.php
  *********************************************************/
 
-EDAssist::initEDAssist();
 /*--------------------------------------------------------
- * EDAssist assist Eduwitter.
- * All members declare as static.
+ * EDAssist supply customized data.
+ * All members declare as static using like namespace.
  * 
  * Methods
- *   ref_rawurlencode
- *   ref_rawurldecode
- *   params2Query
- *   query2Params
- *   params2Authorization
- *   
  *   nonce
- *   
- *   initEDAssist
- * 
- * Variables <omission>
- * 
  -------------------------------------------------------*/
 class EDAssist
 {
-  static $scheme; // initEDAssist() set 'https://' or 'http://'
-  static $host = 'twitter.com';
+  static $secure_scheme = 'https';    // for get {request,access}token
+  static $host = 'api.twitter.com';   // default host name
   
+  /* Twitter API Paths */
   static $api_request_token = '/oauth/request_token';
   static $api_access_token = '/oauth/access_token';
   static $api_authenticate = '/oauth/authenticate';
   static $api_authorize = '/oauth/authorize';
   
+  /* Hash Algos */
   static $signature_method = 'HMAC-SHA1';
   static $hash_algo = 'sha1';
   
   static $oauth_version = '1.0a';
   
-  static $ssl_cainfo = ''; // './twitter.com.crt';
-  static $ssl_verifypeer = true;
-  static $ssl_version = 3;
-  
-  /* callback rawurlencode */
-  static function ref_rawurlencode(&$str)
-  {
-    $str = rawurlencode($str);
-  }
-  
-  /* callback rawurldecode */
-  static function ref_rawurldecode(&$str)
-  {
-    $str = rawurldecode($str);
-  }
-  
-  /* params to http-query like http_build_query without urlencode. */
-  static function params2Query($params)
-  {
-    $parts = array();
-    foreach ($params as $k => $v) {
-      $parts[] = "{$k}={$v}";
-    }
-    return implode('&', $parts);
-  }
-
-  /* http-query to params as array using parse_str */
-  static function query2Params($query)
-  {
-    $params = array();
-    parse_str($query, $params);
-    return $params;
-  }
-  
-  /* params to http-Authorization string */
-  static function params2Authorization($params)
-  {
-    $query = array();
-    foreach ($params as $key => $value) {
-      $query[] = "{$key}=\"{$value}\"";
-    }
-    return 'Authorization: ' . implode (', ', $query);
-  }
+  static $boundary = '--------Eduwitter1d57b8611a6d'; // for multipart/form-data
   
   /* to create oauth_nonce */
   static function nonce () {
     return md5('seita' . microtime() . mt_rand());
   }
-  
-  /* to initialize EDAssist non-initialized static variables*/
-  static function initEDAssist() {
-    /* to initialize EDAssist::$scheme */
-    $v = curl_version();
-    EDAssist::$scheme = ((array_search('https', $v['protocols'])!==false)
-                      ? ('https://') : ('http://'));
-  }
 }
 
 /*--------------------------------------------------------
- * Eduwitter library main class.
+ * EDPreparation
  * 
  * Methods
- *   eduwitteConnect($url, $method, $params)
- *   createParams($post = null)
- *   createSignature($url, $method, $params)
- *   
- *   __construct($consumer_key, $consumer_secret, $oauth_token, $oauth_token_secret)
- *   setOAuthToken($oauth_token, $oauth_token_secret = null)
- *   
- *   getParameter_RequestToken()
- *   getRequestToken
- *   setRequestToken
- *   
- *   getParameter_AccessToken()
- *   getAccessToken
- *   setAccessToken
- *   
- *   getParameter_OAuth($url, $method, $post)
- *   requestOAuth($url, $method, $post)
- *   
- *   lastStatusCode()
- *   lastStatusReason()
- *   
- * Variables
- *   consumer_key
- *   consumer_secret
- *   oauth_token
- *   oauth_token_secret
- *   
- *   user_id
- *   
- *   last_status_code
- *   last_status_reason
+ *   __construct
  * 
+ *   buildParameters
+ *   createSignature
+ *   buildHeaders
+ *   buildBody
+ *   setConsumer
+ *   setOauthToken
+ *   prepare
+ *   getAuthorization
+ * 
+ *   getUrl
+ *   getMethod
+ *   getPost
+ *   getImagePath
+ *   getParameters
+ *   getHeaderFields
+ *   getBodyField
  -------------------------------------------------------*/
-class Eduwitter
+class EDPreparation
 {
-  /*------------------- Protected area ------------------*/
-    protected $consumer_key,    // provided Consumer key
-              $consumer_secret; // provided Consumer secret
-              
-    protected $oauth_token,         // oauth token of request_token or access_token
-              $oauth_token_secret;  // oauth token secret of request_token or access_token
-    
-    protected $user_id;         // authenticated user id
-    
-    protected $last_status_code,    // HTTP status code of last reqest OAuth
-              $last_status_reason;  // HTTP status reason of last request OAuth
-    
+  /* Twitter Consumer & token data */
+  private $consumer_key;
+  private $consumer_secret;
+  private $oauth_token;
+  private $oauth_token_secret;
+  
+  /* oauth request datas */
+  private $url;         // Twitter API URL
+  private $method;      // HTTP Method
+  private $post;        // HTTP Post data
+  private $image_path;  // Upload Image path
+  private $parameters;  // OAuth Parameters
+  
+  /* HTTP datas */
+  private $header_fields; // HTTP Header
+  private $body_field;   // HTTP Message Body
+  
+  /*--------------- private function area --------------*/
     /**
-     * eduwitterConnect
-     * 
-     * parameters
-     *   url -- connection url
-     *   method -- 'GET', 'POST' or 'DELETE'
-     *   params -- request parameters oauth and post-field
+     * build Parameters
      * 
      * return
-     *   response of request
+     *   Authorization parameters for OAuth
      */
-    protected function eduwitteConnect($url, $method, $params)
+    private function buildParameters()
     {
-      $query = EDAssist::params2Query($params);
-      
-      /**
-       * curl configure
-       */
-      $curl_opt = array(
-        CURLOPT_URL             => $url,
-        CURLOPT_HEADER          => TRUE,
-        CURLOPT_RETURNTRANSFER  => true,
-        CURLOPT_SSLVERSION      => EDAssist::$ssl_version,
-        CURLOPT_SSL_VERIFYPEER  => EDAssist::$ssl_verifypeer,
-        CURLOPT_HTTPHEADER      => array(
-          'Expect:',
-          EDAssist::params2Authorization($params)
-        ),
-      );
-      
-      /* switch of method */
-      switch ($method) {
-        case 'GET':
-          $curl_opt[CURLOPT_URL] = $url . '?' . $query;
-          break;
-        case 'POST':
-          $curl_opt[CURLOPT_URL] = $url;
-          $curl_opt[CURLOPT_POST] = true;
-          $curl_opt[CURLOPT_POSTFIELDS] = $query;
-          break;
-        case 'DELETE':
-          $curl_opt[CURLOPT_URL] = $url . '?' . $query;
-          $curl_opt[CURLOPT_CUSTOMREQUEST] = $method;
-          break;
-      }
-      
-      /* setting crt file path, if it is settled */
-      if (!empty(EDAssist::$ssl_cainfo)) {
-        $curl_opt[CURLOPT_CAINFO] = EDAssist::$ssl_cainfo;
-      }
-      
-      /**
-       *  curl connection
-       */
-      $ch = curl_init();
-      curl_setopt_array($ch, $curl_opt);
-      $header_body = curl_exec($ch);
-      curl_close($ch);
-      
-      /* split response to header and body */
-      $split_pos = strpos($header_body, "\r\n\r\n");
-      $response_header = substr($header_body, 0, $split_pos);
-      $response_body = substr($header_body, $split_pos + 4);
-      
-      /* get http status code */
-      preg_match ("/^HTTP\/[\d\.]+ (\d+) (.+)/", $response_header, $m);
-      $this->last_status_code = $m[1];
-      $this->last_status_reason = $m[2];  // 改行が入るバグあり
-      
-      return $response_body;
-    }
-    
-    /**
-     * createParams
-     * 
-     * parameters
-     *   post -- post-field(array)
-     * 
-     * return
-     *   request parameters oauth and post-field without oauth_signature
-     */
-    protected function createParams($post = null)
-    {
-      /* oauth 1.0a refference #5 */
       $params = array(
         'oauth_consumer_key'     => $this->consumer_key,
         'oauth_signature_method' => EDAssist::$signature_method,
@@ -242,254 +98,336 @@ class Eduwitter
         'oauth_nonce'            => EDAssist::nonce(),
         'oauth_version'          => EDassist::$oauth_version,
       );
-      
       if (isset($this->oauth_token)) {
         $params['oauth_token'] = $this->oauth_token;
       }
+      $params = array_merge($params, $this->post);
+      $params['oauth_signature'] = self::createSignature($params);
       
-      /* params including post-filed */
-      if (isset($post)) {
-        $params = array_merge($params, $post);
-      }
+      $this->parameters = $params;
       
-      return $params;
+      ksort($this->parameters);
     }
     
     /**
      * createSignature
-     *   oauth 1.0a refference #9
      * 
      * parameters
-     *   url -- connection url
-     *   method -- 'GET', 'POST' or 'DELETE'
-     *   params -- request parameters oauth and post-field
+     *   OAuth parameters without signature
      * 
      * return
-     *   response of request
+     *   signature created by params
      */
-    protected function createSignature($url, $method, $params)
+    private function createSignature($params)
     {
-      /* normalize */
+      $pu = parse_url($this->url);
+      $url = $pu['scheme'] . '://' . $pu['host'] . $pu['path'];
+      
       ksort($params);
-      $query = EDAssist::params2Query($params);
-      
-      /* collect key and base string */
+      $q = rawurldecode(http_build_query($params));
       $key = $this->consumer_secret . '&' . $this->oauth_token_secret;
-      $base_string = $method.'&'
-                    .rawurlencode($url).'&'
-                    .rawurlencode($query);
+      $base_string = $this->method . '&' . rawurlencode($url) . '&' . rawurlencode($q);
       
-      $signature = 
-        rawurlencode(base64_encode(hash_hmac(EDAssist::$hash_algo, $base_string, $key, true)));
+      return rawurlencode(base64_encode(hash_hmac(EDAssist::$hash_algo, $base_string, $key, true)));
+    }
+    
+    /**
+     * buildHeaders
+     */
+    private function buildHeaders()
+    {
+      $headers = array('Expect:');
       
-      return $signature;
+      switch ($this->method) {
+        case 'GET':
+          $headers[] = self::createAuthorization();
+          break;
+          
+        case 'POST':
+          if (isset($this->image_path)) {
+            $headers[] = self::createAuthorization();
+            $headers[] = "Content-Type: multipart/form-data; boundary=" . EDAssist::$boundary;
+          }
+          $headers[] = "Content-Length: " . strlen($this->body_field);
+          break;
+      }
+      
+      $this->header_fields = implode("\r\n", $headers);
+    }
+    
+    /**
+     * buildBody
+     */
+    private function buildBody()
+    {
+      $this->body_field = "";
+      if (isset($this->image_path)) {
+        $boundary = EDAssist::$boundary;
+        $bname = basename($this->image_path);
+        $this->body_field = "--{$boundary}\r\n"
+                           ."Content-Disposition: form-data; name=\"image\"; filename=\"{$bname}\"\r\n"
+                           ."Content-Type: " . mime_content_type($this->image_path) . "\r\n"
+                           ."\r\n"
+                           .file_get_contents($this->image_path) . "\r\n"
+                           ."--{$boundary}--";
+      }
+      else if ($this->method == 'POST') {
+        $this->body_field = rawurldecode(http_build_query($this->parameters));
+      }
     }
   
-  /*-------------------- Public area --------------------*/
-    /**
-     * __construct
-     * 
-     * parameters
-     *   consumer_key -- provided consumer key
-     *   consumer_secret -- provided consumer secret
-     *   oauth_token -- provided oauth, request or access, token 
-     *   oauth_token_secret -- provided oauth, request or access, token secret
-     */
-    public function __construct($consumer_key = null, $consumer_secret = null,
-                                $oauth_token = null, $oauth_token_secret = null)
-    {
-      if (isset($consumer_key) && isset($consumer_secret)) {
-        $this->consumer_key = $consumer_key;
-        $this->consumer_secret = $consumer_secret;
-      }
-      if (isset($oauth_token) && isset($oauth_token_secret)) {
-        self::setOAuthToken($oauth_token, $oauth_token_secret);
-      }
+  /*-------------------- Public area -------------------*/
+  /**
+   * __construct
+   * 
+   * parameters
+   *   consumer_key -- Consumer key provided by twitter
+   *   consumer_secret -- Consumer secret provided by twitter
+   *   oauth_token -- request/access token
+   *   oauth_token_secret -- request/access token secret
+   */
+  public function __construct($consumer_key, $consumer_secret, $oauth_token, $oauth_token_secret)
+  {
+    if (isset($consumer_key) && isset($consumer_secret)) {
+      self::setConsumer($consumer_key, $consumer_secret);
     }
-    
-    /**
-     * setOAuthToken
-     * 
-     * parameters
-     *   oauth_token -- provided oauth, request or access, token
-     *                  or array(oauth_token, oauth_token_secret)
-     *   oauth_token_secret -- provided oauth, request or access, token secret
-     */
-    public function setOAuthToken($oauth_token, $oauth_token_secret = null)
-    {
-      if (gettype($oauth_token) == 'array') {
-        $this->oauth_token = $oauth_token['oauth_token'];
-        $this->oauth_token_secret = $oauth_token['oauth_token_secret'];
-      }
-      else {
-        $this->oauth_token = $oauth_token;
-        if (isset($oauth_token_secret)) {
-          $this->oauth_token_secret = $oauth_token_secret;
-        }
-      }
-      /* pick out user id */
-      preg_match("/^\d+(?=-)/", $this->oauth_token, $m);
-      if (!empty($m)) {
-        $this->user_id = $m[0];
-      }
-    }
-    
-  /*----------------- Request token area ----------------*/
-    /**
-     * getParameter_RequestToken
-     * 
-     * return
-     *   http request parameters(array)
-     */
-    protected function getParameter_RequestToken()
-    {
-      $url = EDAssist::$scheme . EDAssist::$host . EDAssist::$api_request_token;
-      $method = 'GET';
-      
-      $params = self::createParams();
-      $params['oauth_signature'] = self::createSignature($url, $method, $params);
-      
-      return $params;
-    }
-    
-    /**
-     * getRequestToken
-     * 
-     * return
-     *   oauth token and token secret, oauth/request_token provided
-     */
-    public function getRequestToken()
-    {
-      $url = EDAssist::$scheme . EDAssist::$host . EDAssist::$api_request_token;
-      $method = 'GET';
-      
-      $params = self::getParameter_RequestToken();
-      $response = self::eduwitteConnect($url, $method, $params);
-      
-      return EDAssist::query2Params($response);
-    }
-    
-    /**
-     * setRequestToken
-     * 
-     * parameters
-     *   oauth_token -- provided oauth, request, token
-     *                  or array(oauth_token, oauth_token_secret)
-     *   oauth_token_secret -- provided oauth, request, token secret
-     */
-    public function setRequestToken($oauth_token, $oauth_token_secret = null)
-    {
+    if (isset($oauth_token) && isset($oauth_token_secret)) {
       self::setOAuthToken($oauth_token, $oauth_token_secret);
     }
+  }
+  
+  /**
+   * setConsumer
+   * 
+   * parameters
+   *   consumer_key -- Consumer key provided by twitter
+   *   consumer_secret -- Consumer secret provided by twitter
+   */
+  public function setConsumer($consumer_key, $consumer_secret)
+  {
+    $this->consumer_key = $consumer_key;
+    $this->consumer_secret = $consumer_secret;
+  }
+  
+  /**
+   * setOauthToken
+   * 
+   * parameters
+   *   oauth_token -- request/access token
+   *   oauth_token_secret -- request/access token secret
+   */
+  public function setOauthToken($oauth_token, $oauth_token_secret)
+  {
+    $this->oauth_token = $oauth_token;
+    $this->oauth_token_secret = $oauth_token_secret;
+  }
+  
+  /**
+   * prepare
+   * 
+   * parameters
+   *   url -- URL of API
+   *   method -- HTTP Method of API
+   *   post -- post datas of API
+   *   image_path -- image path or null(none-uploading image)
+   */
+  public function prepare($url, $method, $post = array(), $image_path = null)
+  {
+    $this->url = $url;
+    $this->method = $method;
+    $this->post = $post;
+    $this->image_path = $image_path;
     
-  /*----------------- Aceess token area -----------------*/
-    /**
-     * getParameter_AccessToken
-     * 
-     * return
-     *   http request parameters(array)
-     */
-    protected function getParameter_AccessToken()
-    {
-      $url = EDAssist::$scheme . EDAssist::$host . EDAssist::$api_access_token;
-      $method = 'GET';
+    if ($method == 'GET' && !empty($post)) {
+       $this->url .= (!empty($post) ? '?' . http_build_query($post) : "");
+    }
+    array_walk($this->post, function(&$str) {$str = rawurlencode($str);});
       
-      $params = self::createParams();
-      $params['oauth_signature'] = self::createSignature($url, $method, $params);
-      
-      return $params;
+    self::buildParameters();
+    self::buildBody();
+    self::buildHeaders();
+  }
+  
+  /**
+   * getAuthorization
+   * 
+   * return
+   *   HTTP Authorization Header
+   */
+  public function createAuthorization()
+  {
+    preg_match("/https?:\/\/[^\/]+\//", $this->url, $m);
+    $realm = $m[0];
+    
+    $params = array();
+    foreach ($this->parameters as $k => $v) {
+      $params[] = "{$k}=\"{$v}\"";
     }
     
-    /**
-     * getAccessToken
-     * 
-     * return
-     *   oauth token and token secret, oauth/access_token provided
-     */
-    public function getAccessToken()
-    {
-      $url = EDAssist::$scheme . EDAssist::$host . EDAssist::$api_access_token;
-      $method = 'GET';
-      
-      $params = self::getParameter_AccessToken();
-      $response = self::eduwitteConnect($url, $method, $params);
-      
-      return EDAssist::query2Params($response);
-    }
+    return "Authorization: OAuth realm=\"{$realm}\", " . implode(", ", $params);
+  }
+  
+  /**
+   * getter
+   */
+  public function getUrl() { return $this->url; }
+  public function getMethod() { return $this->method; }
+  public function getPost() { return $this->post; }
+  public function getImagePath() { return $this->image_path; }
+  public function getParameters() { return $this->parameters; }
+  public function getHeaderFields() { return $this->header_fields; }
+  public function getBodyField() { return $this->body_field; }
+}
+
+/*--------------------------------------------------------
+ * Eduwitter library main class.
+ * 
+ * Methods
+ *   eduwitterConnect()
+ *   
+ *   __construct($consumer_key, $consumer_secret, $oauth_token, $oauth_token_secret)
+ *   setOAuthToken($oauth_token, $oauth_token_secret = null)
+ *   
+ *   getRequestToken
+ *   getAccessToken
+ *   requestOAuth($url, $method, $post)
+ *   
+ *   lastStatusCode()
+ *   lastStatusReason()
+ -------------------------------------------------------*/
+class Eduwitter
+{
+  private $prepare;             // OAuth/HTTP prepare-data
+  
+  private $last_status_code,    // HTTP last status code of Twitter OAuth
+          $last_status_reason;  // HTTP last status reason of Twitter OAuth
+  
+  /**
+   * eduwitterConnect
+   * 
+   * parameters
+   *   url -- connection url
+   *   method -- 'GET', 'POST' or 'DELETE'
+   *   params -- request parameters oauth and post-field
+   * 
+   * return
+   *   response of request
+   */
+  protected function eduwitterConnect()
+  {
+    $pu = parse_url($this->prepare->getUrl());
+    
+    $port = getservbyname($pu['scheme'], 'tcp');
+    $path = $pu['path'] . (isset($pu['query']) ? ("?" . $pu['query']) : "");
+    $fsock_host = ($port == 443 ? 'tls://' : '') . $pu['host'];
     
     /**
-     * setAccessToken
-     * 
-     * parameters
-     *   oauth_token -- provided oauth, request, token
-     *                  or array(oauth_token, oauth_token_secret)
-     *   oauth_token_secret -- provided oauth, request, token secret
+     * opening socket and recieving
      */
-    public function setAccessToken($oauth_token, $oauth_token_secret = null)
-    {
-      self::setOAuthToken($oauth_token, $oauth_token_secret);
+    $fp = fsockopen($fsock_host, $port);
+    if (!$fp) {
+      die("Can not open socket\n");
     }
     
-  /*--------------------- OAuth area --------------------*/
-    /**
-     * getParameter_OAuth
-     * 
-     * parameters
-     *   url -- connection url
-     *   method -- 'GET', 'POST' or 'DELETE'
-     *   params -- request parameters oauth and post-field
-     * 
-     * return
-     *   http request parameters(array)
-     */
-    protected function getParameter_OAuth($url, $method, $post)
-    {
-      $params = self::createParams($post);
-      $params['oauth_signature'] = self::createSignature($url, $method, $params);
-      
-      return $params;
-    }
+    fwrite($fp, $this->prepare->getMethod() . " {$path} HTTP/1.1\r\n");
+    fwrite($fp, "Host: {$pu['host']}\r\n");
+    fwrite($fp, $this->prepare->getHeaderFields() . "\r\n");
+    fwrite($fp, "\r\n");
+    fwrite($fp, $this->prepare->getBodyField());
     
-    /**
-     * requestOAuth
-     * 
-     * parameters
-     *   url -- connection url
-     *   method -- 'GET', 'POST' or 'DELETE'
-     *   params -- post-field
-     * 
-     * return
-     *   response of http-request
-     */
-    public function requestOAuth($url, $method, $post)
-    {
-      array_walk($post, 'EDAssist::ref_rawurlencode');
-      
-      $params = self::getParameter_OAuth($url, $method, $post);
-      $response = self::eduwitteConnect($url, $method, $params);
-      
-      return $response;
+    $buf = "";
+    while (!feof($fp)) {
+      $buf .= fgets($fp);
     }
+    fclose($fp);
     
-    /**
-     * lastStatusCode
-     * 
-     * return
-     *   http status code of last eduwitteConnect()
-     */
-    public function lastStatusCode()
-    {
-      return $this->last_status_code;
-    }
+    /* split response to header and body */
+    $split_pos = strpos($buf, "\r\n\r\n");
+    $response_header = substr($buf, 0, $split_pos);
+    $response_body = substr($buf, $split_pos + 4);
     
-    /**
-     * lastStatusReason
-     * 
-     * return
-     *   http status reason of last eduwitterConnect()
-     */
-    public function lastStatusReason()
-    {
-      return $this->last_status_reason;
-    }
+    /* get http status code */
+    preg_match ("/^HTTP\/[\d\.]+ (\d+) (.+)/", $response_header, $m);
+    $this->last_status_code = $m[1];
+    $this->last_status_reason = trim($m[2]);
+    
+    return $response_body;
+  }
+
+  /**
+   * __construct
+   * 
+   * parameters
+   *   consumer_key -- provided consumer key
+   *   consumer_secret -- provided consumer secret
+   *   oauth_token -- provided oauth, request or access, token 
+   *   oauth_token_secret -- provided oauth, request or access, token secret
+   */
+  public function __construct($consumer_key, $consumer_secret,
+                              $oauth_token = null, $oauth_token_secret = null)
+  {
+    $this->prepare = new EDPreparation($consumer_key, $consumer_secret, 
+                                       $oauth_token, $oauth_token_secret);
+  }
+  
+  /**
+   * getRequestToken
+   * 
+   * return
+   *   oauth token and token secret, oauth/request_token provided
+   */
+  public function getRequestToken()
+  {
+    $url = EDAssist::$secure_scheme . '://' . EDAssist::$host . EDAssist::$api_request_token;
+    $method = 'GET';
+    
+    $this->prepare->prepare($url, $method);
+    $response = self::eduwitterConnect();
+    
+    parse_str($response, $request_tokens);
+    return $request_tokens;
+  }
+  
+  /**
+   * getAccessToken
+   * 
+   * return
+   *   oauth token and token secret, oauth/access_token provided
+   */
+  public function getAccessToken()
+  {
+    $url = EDAssist::$secure_scheme . '://' . EDAssist::$host . EDAssist::$api_access_token;
+    $method = 'GET';
+    
+    $this->prepare->prepare($url, $method);
+    $response = self::eduwitterConnect();
+    
+    parse_str($response, $oauth_tokens);
+    return $oauth_tokens;
+  }
+  
+  /**
+   * requestOAuth
+   * 
+   * parameters
+   *   url -- connection url
+   *   method -- 'GET', 'POST' or 'DELETE'
+   *   params -- post-field
+   * 
+   * return
+   *   response of http-request
+   */
+  public function requestOAuth($url, $method, $post = array(), $image_path = null)
+  {
+    $this->prepare->prepare($url, $method, $post, $image_path);
+    $response = self::eduwitterConnect();
+    
+    return $response;
+  }
+  
+  /**
+   * getter
+   */
+  public function getLastStatusCode() { return $this->last_status_code; }
+  public function getLastStatusReason() { return $this->last_status_reason; }
 }
