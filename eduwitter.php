@@ -177,106 +177,111 @@ class EDPreparation
     }
   
   /*-------------------- Public area -------------------*/
-  /**
-   * __construct
-   * 
-   * parameters
-   *   consumer_key -- Consumer key provided by twitter
-   *   consumer_secret -- Consumer secret provided by twitter
-   *   oauth_token -- request/access token
-   *   oauth_token_secret -- request/access token secret
-   */
-  public function __construct($consumer_key, $consumer_secret, $oauth_token, $oauth_token_secret)
-  {
-    if (isset($consumer_key) && isset($consumer_secret)) {
-      self::setConsumer($consumer_key, $consumer_secret);
+    /**
+     * __construct
+     * 
+     * parameters
+     *   consumer_key -- Consumer key provided by twitter
+     *   consumer_secret -- Consumer secret provided by twitter
+     *   oauth_token -- request/access token
+     *   oauth_token_secret -- request/access token secret
+     */
+    public function __construct($consumer_key, $consumer_secret, $oauth_token, $oauth_token_secret)
+    {
+      if (isset($consumer_key) && isset($consumer_secret)) {
+        self::setConsumer($consumer_key, $consumer_secret);
+      }
+      if (isset($oauth_token) && isset($oauth_token_secret)) {
+        self::setOAuthToken($oauth_token, $oauth_token_secret);
+      }
     }
-    if (isset($oauth_token) && isset($oauth_token_secret)) {
-      self::setOAuthToken($oauth_token, $oauth_token_secret);
-    }
-  }
-  
-  /**
-   * setConsumer
-   * 
-   * parameters
-   *   consumer_key -- Consumer key provided by twitter
-   *   consumer_secret -- Consumer secret provided by twitter
-   */
-  public function setConsumer($consumer_key, $consumer_secret)
-  {
-    $this->consumer_key = $consumer_key;
-    $this->consumer_secret = $consumer_secret;
-  }
-  
-  /**
-   * setOauthToken
-   * 
-   * parameters
-   *   oauth_token -- request/access token
-   *   oauth_token_secret -- request/access token secret
-   */
-  public function setOauthToken($oauth_token, $oauth_token_secret)
-  {
-    $this->oauth_token = $oauth_token;
-    $this->oauth_token_secret = $oauth_token_secret;
-  }
-  
-  /**
-   * prepare
-   * 
-   * parameters
-   *   url -- URL of API
-   *   method -- HTTP Method of API
-   *   post -- post datas of API
-   *   image_path -- image path or null(none-uploading image)
-   */
-  public function prepare($url, $method, $post = array(), $image_path = null)
-  {
-    $this->url = $url;
-    $this->method = $method;
-    $this->post = $post;
-    $this->image_path = $image_path;
     
-    if ($method == 'GET' && !empty($post)) {
-       $this->url .= (!empty($post) ? '?' . http_build_query($post) : "");
+    /**
+     * setConsumer
+     * 
+     * parameters
+     *   consumer_key -- Consumer key provided by twitter
+     *   consumer_secret -- Consumer secret provided by twitter
+     */
+    public function setConsumer($consumer_key, $consumer_secret)
+    {
+      $this->consumer_key = $consumer_key;
+      $this->consumer_secret = $consumer_secret;
     }
-    array_walk($this->post, function(&$str) {$str = rawurlencode($str);});
+    
+    /**
+     * setOauthToken
+     * 
+     * parameters
+     *   oauth_token -- request/access token
+     *   oauth_token_secret -- request/access token secret
+     */
+    public function setOauthToken($oauth_token, $oauth_token_secret)
+    {
+      $this->oauth_token = $oauth_token;
+      $this->oauth_token_secret = $oauth_token_secret;
+    }
+    
+    /**
+     * prepare
+     * 
+     * parameters
+     *   url -- URL of API
+     *   method -- HTTP Method of API
+     *   post -- post datas of API
+     *   image_path -- image path or null(none-uploading image)
+     */
+    public function prepare($url, $method, $post = array(), $image_path = null)
+    {
+      $this->url = $url;
+      $this->method = $method;
+      $this->post = $post;
+      $this->image_path = $image_path;
       
-    self::buildParameters();
-    self::buildBody();
-    self::buildHeaders();
-  }
-  
-  /**
-   * getAuthorization
-   * 
-   * return
-   *   HTTP Authorization Header
-   */
-  public function createAuthorization()
-  {
-    preg_match("/https?:\/\/[^\/]+\//", $this->url, $m);
-    $realm = $m[0];
-    
-    $params = array();
-    foreach ($this->parameters as $k => $v) {
-      $params[] = "{$k}=\"{$v}\"";
+      /**
+       * Note: if (metthod == GET or image_path != null) and post data exists,
+       *   eduwitter create signature including post data,
+       *   and set post datas to query string.
+       */
+      if (($method == 'GET' || isset($image_path)) && !empty($post)) {
+         $this->url .= (!empty($post) ? '?' . http_build_query($post) : "");
+      }
+      array_walk($this->post, function(&$str) {$str = rawurlencode($str);});
+        
+      self::buildParameters();
+      self::buildBody();
+      self::buildHeaders();
     }
     
-    return "Authorization: OAuth realm=\"{$realm}\", " . implode(", ", $params);
-  }
-  
-  /**
-   * getter
-   */
-  public function getUrl() { return $this->url; }
-  public function getMethod() { return $this->method; }
-  public function getPost() { return $this->post; }
-  public function getImagePath() { return $this->image_path; }
-  public function getParameters() { return $this->parameters; }
-  public function getHeaderFields() { return $this->header_fields; }
-  public function getBodyField() { return $this->body_field; }
+    /**
+     * getAuthorization
+     * 
+     * return
+     *   HTTP Authorization Header
+     */
+    public function createAuthorization()
+    {
+      preg_match("/https?:\/\/[^\/]+\//", $this->url, $m);
+      $realm = $m[0];
+      
+      $params = array();
+      foreach ($this->parameters as $k => $v) {
+        $params[] = "{$k}=\"{$v}\"";
+      }
+      
+      return "Authorization: OAuth realm=\"{$realm}\", " . implode(", ", $params);
+    }
+    
+    /**
+     * getter
+     */
+    public function getUrl() { return $this->url; }
+    public function getMethod() { return $this->method; }
+    public function getPost() { return $this->post; }
+    public function getImagePath() { return $this->image_path; }
+    public function getParameters() { return $this->parameters; }
+    public function getHeaderFields() { return $this->header_fields; }
+    public function getBodyField() { return $this->body_field; }
 }
 
 /*--------------------------------------------------------
