@@ -150,7 +150,7 @@ if ($run_direct_messages) {
   echo 'HTTP Status Reason: ' . $eduwitter->getLastStatusReason() . "\n";
 }
 if ($run_update_profile_image) {
-  /* get direct messages */
+  /* update profile background image */
   echo "--------------------\n";
   echo "update profile background image\n";
   $url = "http://api.twitter.com/1/account/update_profile_image.xml";
@@ -164,7 +164,7 @@ if ($run_update_profile_image) {
   echo 'HTTP Status Reason: ' . $eduwitter->getLastStatusReason() . "\n";
 }
 if ($run_update_profile_background_image) {
-  /* get direct messages */
+  /* update profile background image */
   echo "--------------------\n";
   echo "update profile background image\n";
   $url = "http://api.twitter.com/1/account/update_profile_background_image.xml";
