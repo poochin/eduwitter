@@ -1,8 +1,11 @@
 <?php
+// TODO: consumer_key の位置
+// TODO: 
+
 /**********************************************************
- * Eduwitter v0.3.0
+ * Eduwitter v0.3.1
  * Author: poochin
- * LastUpdate: 2010-10-3
+ * LastUpdate: 2010-10-13
  * License: MIT or BSD
  *   MIT: http://www.opensource.org/licenses/mit-license.php
  *   BSD: http://www.opensource.org/licenses/bsd-license.php
@@ -50,9 +53,7 @@ class EDAssist
  *   createSignature
  *   buildHeaders
  *   buildBody
- *   setConsumer
- *   setOauthToken
- *   prepare
+ *   setup
  *   getAuthorization
  * 
  *   getUrl
@@ -65,7 +66,7 @@ class EDAssist
  -------------------------------------------------------*/
 class EDPreparation
 {
-  /* Twitter Consumer & token data */
+  /* Twitter Consumer & tokens */
   private $consumer_key;
   private $consumer_secret;
   private $oauth_token;
@@ -186,38 +187,10 @@ class EDPreparation
      *   oauth_token -- request/access token
      *   oauth_token_secret -- request/access token secret
      */
-    public function __construct($consumer_key, $consumer_secret, $oauth_token, $oauth_token_secret)
-    {
-      if (isset($consumer_key) && isset($consumer_secret)) {
-        self::setConsumer($consumer_key, $consumer_secret);
-      }
-      if (isset($oauth_token) && isset($oauth_token_secret)) {
-        self::setOAuthToken($oauth_token, $oauth_token_secret);
-      }
-    }
-    
-    /**
-     * setConsumer
-     * 
-     * parameters
-     *   consumer_key -- Consumer key provided by twitter
-     *   consumer_secret -- Consumer secret provided by twitter
-     */
-    public function setConsumer($consumer_key, $consumer_secret)
+    public function __construct($consumer_key, $consumer_secret, $oauth_token = null, $oauth_token_secret = null)
     {
       $this->consumer_key = $consumer_key;
       $this->consumer_secret = $consumer_secret;
-    }
-    
-    /**
-     * setOauthToken
-     * 
-     * parameters
-     *   oauth_token -- request/access token
-     *   oauth_token_secret -- request/access token secret
-     */
-    public function setOauthToken($oauth_token, $oauth_token_secret)
-    {
       $this->oauth_token = $oauth_token;
       $this->oauth_token_secret = $oauth_token_secret;
     }
@@ -231,11 +204,11 @@ class EDPreparation
      *   post -- post datas of API
      *   image_path -- image path or null(none-uploading image)
      */
-    public function prepare($url, $method, $post = array(), $image_path = null)
+    public function setup($url, $method, $post = array(), $image_path = null)
     {
       $this->url = $url;
       $this->method = $method;
-      $this->post = $post;
+      $this->post = array_map("rawurlencode", $post);
       $this->image_path = $image_path;
       
       /**
@@ -244,10 +217,9 @@ class EDPreparation
        *   and set post datas to query string.
        */
       if (($method == 'GET' || isset($image_path)) && !empty($post)) {
-         $this->url .= (!empty($post) ? '?' . http_build_query($post) : "");
+         $this->url .= (!empty($post) ? ('?' . http_build_query($post)) : (""));
       }
-      array_walk($this->post, function(&$str) {$str = rawurlencode($str);});
-        
+      
       self::buildParameters();
       self::buildBody();
       self::buildHeaders();
@@ -302,7 +274,8 @@ class EDPreparation
  -------------------------------------------------------*/
 class Eduwitter
 {
-  private $prepare;             // OAuth/HTTP prepare-data
+  private $consumer_key, $consumer_secret;    // Consumer key/secret of Twitter OAuth
+  private $oauth_token, $oauth_token_secret;  // oauth_token/token_secret of Twitter OAuth
   
   private $last_status_code,    // HTTP last status code of Twitter OAuth
           $last_status_reason;  // HTTP last status reason of Twitter OAuth
@@ -318,9 +291,12 @@ class Eduwitter
    * return
    *   response of request
    */
-  protected function eduwitterConnect()
+  protected function eduwitterConnect($prepare)
   {
-    $pu = parse_url($this->prepare->getUrl());
+    /**
+     * collecting datas to open socket
+     */
+    $pu = parse_url($prepare->getUrl());
     
     $port = getservbyname($pu['scheme'], 'tcp');
     $path = $pu['path'] . (isset($pu['query']) ? ("?" . $pu['query']) : "");
@@ -334,11 +310,11 @@ class Eduwitter
       die("Can not open socket\n");
     }
     
-    fwrite($fp, $this->prepare->getMethod() . " {$path} HTTP/1.1\r\n");
+    fwrite($fp, $prepare->getMethod() . " {$path} HTTP/1.1\r\n");
     fwrite($fp, "Host: {$pu['host']}\r\n");
-    fwrite($fp, $this->prepare->getHeaderFields() . "\r\n");
+    fwrite($fp, $prepare->getHeaderFields() . "\r\n");
     fwrite($fp, "\r\n");
-    fwrite($fp, $this->prepare->getBodyField());
+    fwrite($fp, $prepare->getBodyField());
     
     $buf = "";
     while (!feof($fp)) {
@@ -346,6 +322,9 @@ class Eduwitter
     }
     fclose($fp);
     
+    /**
+     * end of connection and parse response data
+     */
     /* split response to header and body */
     $split_pos = strpos($buf, "\r\n\r\n");
     $response_header = substr($buf, 0, $split_pos);
@@ -354,7 +333,7 @@ class Eduwitter
     /* get http status code */
     preg_match ("/^HTTP\/[\d\.]+ (\d+) (.+)/", $response_header, $m);
     $this->last_status_code = $m[1];
-    $this->last_status_reason = trim($m[2]);
+    $this->last_status_reason = trim($m[2]); // trim word(\r)
     
     return $response_body;
   }
@@ -371,24 +350,32 @@ class Eduwitter
   public function __construct($consumer_key, $consumer_secret,
                               $oauth_token = null, $oauth_token_secret = null)
   {
-    $this->prepare = new EDPreparation($consumer_key, $consumer_secret, 
-                                       $oauth_token, $oauth_token_secret);
+    $this->consumer_key = $consumer_key;
+    $this->consumer_secret = $consumer_secret;
+    $this->oauth_token = $oauth_token;
+    $this->oauth_token_secret = $oauth_token_secret;
   }
   
   /**
    * getRequestToken
    * 
    * return
-   *   oauth token and token secret, oauth/request_token provided
+   *   oauth token and token secret, oauth/request_token provided.
+   *   fail: http raw response string
    */
   public function getRequestToken()
   {
     $url = EDAssist::$secure_scheme . '://' . EDAssist::$host . EDAssist::$api_request_token;
     $method = 'GET';
     
-    $this->prepare->prepare($url, $method);
-    $response = self::eduwitterConnect();
+    $prepare = new EDPreparation($this->consumer_key, $this->consumer_secret, $this->oauth_token, $this->oauth_token_secret);
+    $prepare->setup($url, $method);
     
+    $response = self::eduwitterConnect($prepare);
+    
+    if ($self::getLastStatusCode() != 200) {
+      return $response;
+    }
     parse_str($response, $request_tokens);
     return $request_tokens;
   }
@@ -397,16 +384,22 @@ class Eduwitter
    * getAccessToken
    * 
    * return
-   *   oauth token and token secret, oauth/access_token provided
+   *   oauth token and token secret, oauth/access_token provided.
+   *   fail: http raw response string
    */
-  public function getAccessToken()
+  public function getAccessToken($oauth_token, $oauth_token_secret)
   {
     $url = EDAssist::$secure_scheme . '://' . EDAssist::$host . EDAssist::$api_access_token;
     $method = 'GET';
     
-    $this->prepare->prepare($url, $method);
-    $response = self::eduwitterConnect();
+    $prepare = new EDPreparation($this->consumer_key, $this->consumer_secret, $oauth_token, $oauth_token_secret);
+    $prepare->setup($url, $method);
     
+    $response = self::eduwitterConnect($prepare);
+    
+    if ($self::getLastStatusCode() != 200) {
+      return $response;
+    }
     parse_str($response, $oauth_tokens);
     return $oauth_tokens;
   }
@@ -424,8 +417,10 @@ class Eduwitter
    */
   public function requestOAuth($url, $method, $post = array(), $image_path = null)
   {
-    $this->prepare->prepare($url, $method, $post, $image_path);
-    $response = self::eduwitterConnect();
+    $prepare = new EDPreparation($this->consumer_key, $this->consumer_secret, $this->oauth_token, $this->oauth_token_secret);
+    $prepare->setup($url, $method, $post, $image_path);
+    
+    $response = self::eduwitterConnect($prepare);
     
     return $response;
   }
